@@ -210,6 +210,9 @@ int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
     // 修改对齐方式为 BOTTOM_LEFT，以适应 270 度旋转后的内容方向
     lv_obj_align(top, LV_ALIGN_BOTTOM_LEFT, 0, 0);
     lv_canvas_set_buffer(top, widget->cbuf, BUFFER_SIZE, BUFFER_SIZE, LV_IMG_CF_TRUE_COLOR);
+    // === 将 top 画布向右移动 5 像素 ===
+    lv_coord_t top_current_x = lv_obj_get_x(top);
+    lv_obj_set_x(top, top_current_x + 5);
 
     // --- 中部区域画布 ---
     lv_obj_t *middle = lv_canvas_create(widget->obj);
@@ -218,6 +221,9 @@ int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
     // 270度旋转后，为了保持相对位置，需要向右（正方向）偏移相同距离，所以取负号。
     lv_obj_align(middle, LV_ALIGN_BOTTOM_LEFT, -BUFFER_OFFSET_MIDDLE, 0);
     lv_canvas_set_buffer(middle, widget->cbuf2, BUFFER_SIZE, BUFFER_SIZE, LV_IMG_CF_TRUE_COLOR);
+    // === 将 top 画布向右移动 5 像素 ===
+        lv_coord_t middle_current_x = lv_obj_get_x(middle);
+    lv_obj_set_x(middle, middle_current_x + 5);
 
     // --- 底部区域画布 ---
     lv_obj_t *bottom = lv_canvas_create(widget->obj);
@@ -226,7 +232,9 @@ int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
     // 270度旋转后，为了保持相对位置，需要向右（正方向）偏移相同距离，所以取负号。
     lv_obj_align(bottom, LV_ALIGN_BOTTOM_LEFT, -BUFFER_OFFSET_BOTTOM, 0);
     lv_canvas_set_buffer(bottom, widget->cbuf3, BUFFER_SIZE, BUFFER_SIZE, LV_IMG_CF_TRUE_COLOR);
-
+    // === 将 top 画布向右移动 5 像素 ===
+        lv_coord_t bottom_current_x = lv_obj_get_x(bottom);
+    lv_obj_set_x(bottom, bottom_current_x + 5);
 
     // --- 事件监听器和列表管理 (保持不变) ---
     sys_slist_append(&widgets, &widget->node);
