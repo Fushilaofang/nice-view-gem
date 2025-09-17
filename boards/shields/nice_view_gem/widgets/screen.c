@@ -25,42 +25,39 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
-// 定义旋转后的屏幕尺寸
-#define ROTATED_SCREEN_WIDTH SCREEN_HEIGHT // 160
-#define ROTATED_SCREEN_HEIGHT SCREEN_WIDTH // 68
+// 定义屏幕尺寸 (逻辑上是 160 高 x 68 宽，因为是旋转显示设计的)
+#define SCREEN_LOGICAL_WIDTH SCREEN_HEIGHT  // 160
+#define SCREEN_LOGICAL_HEIGHT SCREEN_WIDTH  // 68
 
 /**
  * Draw buffers
- * Note: The drawing logic for individual sections remains the same,
- * but the final composition and rotation happen at the widget->obj level.
+ * Note: Drawing logic for individual sections remains the same.
+ * Rotation is now applied to a container holding all canvases.
  **/
 static void draw_top(lv_obj_t *widget, lv_color_t cbuf[], const struct status_state *state) {
-    lv_obj_t *canvas = lv_obj_get_child(widget, 0);
+    lv_obj_t *canvas = lv_obj_get_child(lv_obj_get_child(widget, 0), 0); // Get canvas from rotated_container
     fill_background(canvas);
-    // Draw widgets
     draw_output_status(canvas, state);
     draw_battery_status(canvas, state);
-    // No rotation here anymore
-    // rotate_canvas(canvas, cbuf); // This line is removed or commented out
+    // Local rotation removed as per previous attempt
+    // rotate_canvas(canvas, cbuf);
 }
 
 static void draw_middle(lv_obj_t *widget, lv_color_t cbuf[], const struct status_state *state) {
-    lv_obj_t *canvas = lv_obj_get_child(widget, 1);
+    lv_obj_t *canvas = lv_obj_get_child(lv_obj_get_child(widget, 0), 1); // Get canvas from rotated_container
     fill_background(canvas);
-    // Draw widgets
     draw_wpm_status(canvas, state);
-    // No rotation here anymore
-    // rotate_canvas(canvas, cbuf); // This line is removed or commented out
+    // Local rotation removed
+    // rotate_canvas(canvas, cbuf);
 }
 
 static void draw_bottom(lv_obj_t *widget, lv_color_t cbuf[], const struct status_state *state) {
-    lv_obj_t *canvas = lv_obj_get_child(widget, 2);
+    lv_obj_t *canvas = lv_obj_get_child(lv_obj_get_child(widget, 0), 2); // Get canvas from rotated_container
     fill_background(canvas);
-    // Draw widgets
     draw_profile_status(canvas, state);
     draw_layer_status(canvas, state);
-    // No rotation here anymore
-    // rotate_canvas(canvas, cbuf); // This line is removed or commented out
+    // Local rotation removed
+    // rotate_canvas(canvas, cbuf);
 }
 
 /**
@@ -179,53 +176,60 @@ struct wpm_status_state wpm_status_get_state(const zmk_event_t *eh) {
 
 ZMK_DISPLAY_WIDGET_LISTENER(widget_wpm_status, struct wpm_status_state, wpm_status_update_cb,
                             wpm_status_get_state)
-ZMK_SUBSCRIPTION(widget_wpm_status, zmk_wpm_state_changed);
 
 /**
  * Initialization
- * This is where the main change for overall rotation happens.
+ * This is where the main change for overall rotation happens using a container.
  **/
 int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
-    // Create the main widget object with dimensions matching the ROTATED screen
+    // 1. Create the main widget object with dimensions matching the LOGICAL screen size (as designed)
     widget->obj = lv_obj_create(parent);
-    lv_obj_set_size(widget->obj, ROTATED_SCREEN_WIDTH, ROTATED_SCREEN_HEIGHT); // 160 x 68
+    lv_obj_set_size(widget->obj, SCREEN_LOGICAL_WIDTH, SCREEN_LOGICAL_HEIGHT); // 160 x 68
+    // Ensure the main widget background is transparent or matches the expected background
+    lv_obj_set_style_bg_opa(widget->obj, LV_OPA_TRANSP, 0); // Or LV_OPA_COVER with desired color
 
-    // Create a style to apply the 270-degree rotation
+    // 2. Create a container that will hold the canvases and be rotated
+    lv_obj_t *rotated_container = lv_obj_create(widget->obj);
+    lv_obj_set_size(rotated_container, SCREEN_LOGICAL_WIDTH, SCREEN_LOGICAL_HEIGHT); // Match parent
+    lv_obj_set_style_pad_all(rotated_container, 0, 0); // Remove padding
+    lv_obj_set_style_border_width(rotated_container, 0, 0); // Remove border
+    lv_obj_set_style_bg_opa(rotated_container, LV_OPA_TRANSP, 0); // Transparent background
+    // Align the container to fill the parent
+    lv_obj_align(rotated_container, LV_ALIGN_CENTER, 0, 0); // Or TOP_LEFT if needed
+
+    // 3. Create a style for the 270-degree rotation and apply it to the container
     static lv_style_t style_rotate_270;
     lv_style_init(&style_rotate_270);
     // 270 degrees * 10 (LVGL's unit) = 2700
     lv_style_set_transform_angle(&style_rotate_270, 2700);
-    // Pivot point for rotation (center of the original screen size)
-    // We rotate around the center of the unrotated screen (SCREEN_WIDTH/2, SCREEN_HEIGHT/2) = (34, 80)
-    lv_style_set_transform_pivot_x(&style_rotate_270, SCREEN_WIDTH / 2); // 34
-    lv_style_set_transform_pivot_y(&style_rotate_270, SCREEN_HEIGHT / 2); // 80
+    // Pivot point for rotation: center of the logical screen (160x68)
+    // Center is (160/2, 68/2) = (80, 34)
+    lv_style_set_transform_pivot_x(&style_rotate_270, 80);
+    lv_style_set_transform_pivot_y(&style_rotate_270, 34);
 
-    // Apply the rotation style to the main widget object
-    lv_obj_add_style(widget->obj, &style_rotate_270, 0);
+    // Apply the rotation style to the container
+    lv_obj_add_style(rotated_container, &style_rotate_270, 0);
 
-    // Create the three canvas children as before
-    // Their placement logic remains, but they will be rotated along with the parent widget->obj
-    lv_obj_t *top = lv_canvas_create(widget->obj);
+    // 4. Create the three canvas children INSIDE the rotated_container
+    lv_obj_t *top = lv_canvas_create(rotated_container);
     lv_obj_align(top, LV_ALIGN_TOP_RIGHT, 0, 0);
     lv_canvas_set_buffer(top, widget->cbuf, BUFFER_SIZE, BUFFER_SIZE, LV_IMG_CF_TRUE_COLOR);
 
-    lv_obj_t *middle = lv_canvas_create(widget->obj);
-    // Adjust alignment for the new layout consideration after rotation
-    // This might need fine-tuning depending on visual outcome
+    lv_obj_t *middle = lv_canvas_create(rotated_container);
+    // Keep original alignment logic relative to the container's unrotated coordinate system
     lv_obj_align(middle, LV_ALIGN_TOP_RIGHT, BUFFER_OFFSET_MIDDLE, 0);
     lv_canvas_set_buffer(middle, widget->cbuf2, BUFFER_SIZE, BUFFER_SIZE, LV_IMG_CF_TRUE_COLOR);
 
-    lv_obj_t *bottom = lv_canvas_create(widget->obj);
-    // Adjust alignment for the new layout consideration after rotation
-    // This might need fine-tuning depending on visual outcome
+    lv_obj_t *bottom = lv_canvas_create(rotated_container);
+    // Keep original alignment logic
     lv_obj_align(bottom, LV_ALIGN_TOP_RIGHT, BUFFER_OFFSET_BOTTOM, 0);
     lv_canvas_set_buffer(bottom, widget->cbuf3, BUFFER_SIZE, BUFFER_SIZE, LV_IMG_CF_TRUE_COLOR);
 
 
-    // Append widget to the list for event handling
+    // 5. Append widget to the list for event handling
     sys_slist_append(&widgets, &widget->node);
 
-    // Initialize listeners
+    // 6. Initialize listeners
     widget_battery_status_init();
     widget_layer_status_init();
     widget_output_status_init();
