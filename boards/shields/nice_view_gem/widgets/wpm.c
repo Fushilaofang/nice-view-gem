@@ -7,7 +7,7 @@ LV_IMG_DECLARE(grid);
 
 // 定义缩小后的宽度和居中偏移
 #define WPM_GRAPH_GRID_WIDTH_REDUCED 64
-#define WPM_CENTERING_OFFSET_X 2 // (68 - 64) / 2
+#define WPM_CENTERING_OFFSET_X 0 // (68 - 64) / 2
 
 static void draw_gauge(lv_obj_t *canvas, const struct status_state *state) {
     lv_draw_img_dsc_t img_dsc;
