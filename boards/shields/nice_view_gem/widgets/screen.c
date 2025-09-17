@@ -25,43 +25,47 @@ LOG_MODULE_DECLARE(zmk, CONFIG_ZMK_LOG_LEVEL);
 
 static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
 
-// 定义屏幕尺寸 (逻辑上是 160 高 x 68 宽，因为是旋转显示设计的)
-#define SCREEN_LOGICAL_WIDTH SCREEN_HEIGHT  // 160
-#define SCREEN_LOGICAL_HEIGHT SCREEN_WIDTH  // 68
-
 /**
  * Draw buffers
- * Note: Drawing logic for individual sections remains the same.
- * Rotation is now applied to a container holding all canvases.
+ * 注意：draw_*_status 函数内部的坐标是相对于各自 68x68 的画布的，
+ * 旋转由 rotate_canvas 处理，这里的修改不影响它们。
  **/
+
+// 调整顶部区域绘制函数
 static void draw_top(lv_obj_t *widget, lv_color_t cbuf[], const struct status_state *state) {
-    lv_obj_t *canvas = lv_obj_get_child(lv_obj_get_child(widget, 0), 0); // Get canvas from rotated_container
+    lv_obj_t *canvas = lv_obj_get_child(widget, 0);
     fill_background(canvas);
+    // Draw widgets
     draw_output_status(canvas, state);
     draw_battery_status(canvas, state);
-    // Local rotation removed as per previous attempt
-    // rotate_canvas(canvas, cbuf);
+    // Rotate for horizontal display (now 270 degrees)
+    rotate_canvas(canvas, cbuf);
 }
 
+// 调整中部区域绘制函数
 static void draw_middle(lv_obj_t *widget, lv_color_t cbuf[], const struct status_state *state) {
-    lv_obj_t *canvas = lv_obj_get_child(lv_obj_get_child(widget, 0), 1); // Get canvas from rotated_container
+    lv_obj_t *canvas = lv_obj_get_child(widget, 1);
     fill_background(canvas);
+    // Draw widgets
     draw_wpm_status(canvas, state);
-    // Local rotation removed
-    // rotate_canvas(canvas, cbuf);
+    // Rotate for horizontal display (now 270 degrees)
+    rotate_canvas(canvas, cbuf);
 }
 
+// 调整底部区域绘制函数
 static void draw_bottom(lv_obj_t *widget, lv_color_t cbuf[], const struct status_state *state) {
-    lv_obj_t *canvas = lv_obj_get_child(lv_obj_get_child(widget, 0), 2); // Get canvas from rotated_container
+    lv_obj_t *canvas = lv_obj_get_child(widget, 2);
     fill_background(canvas);
+    // Draw widgets
     draw_profile_status(canvas, state);
     draw_layer_status(canvas, state);
-    // Local rotation removed
-    // rotate_canvas(canvas, cbuf);
+    // Rotate for horizontal display (now 270 degrees)
+    rotate_canvas(canvas, cbuf);
 }
 
 /**
  * Battery status
+ * 逻辑不变，但会调用修改后的 draw_top
  **/
 static void set_battery_status(struct zmk_widget_screen *widget,
                                struct battery_status_state state) {
@@ -96,6 +100,7 @@ ZMK_SUBSCRIPTION(widget_battery_status, zmk_usb_conn_state_changed);
 
 /**
  * Layer status
+ * 逻辑不变，但会调用修改后的 draw_bottom
  **/
 static void set_layer_status(struct zmk_widget_screen *widget, struct layer_status_state state) {
     widget->state.layer_index = state.index;
@@ -119,6 +124,7 @@ ZMK_SUBSCRIPTION(widget_layer_status, zmk_layer_state_changed);
 
 /**
  * Output status
+ * 逻辑不变，但会调用修改后的 draw_top 和 draw_bottom
  **/
 static void set_output_status(struct zmk_widget_screen *widget,
                               const struct output_status_state *state) {
@@ -156,6 +162,7 @@ ZMK_SUBSCRIPTION(widget_output_status, zmk_ble_active_profile_changed);
 
 /**
  * WPM status
+ * 逻辑不变，但会调用修改后的 draw_middle
  **/
 static void set_wpm_status(struct zmk_widget_screen *widget, struct wpm_status_state state) {
     for (int i = 0; i < 9; i++) {
@@ -176,60 +183,46 @@ struct wpm_status_state wpm_status_get_state(const zmk_event_t *eh) {
 
 ZMK_DISPLAY_WIDGET_LISTENER(widget_wpm_status, struct wpm_status_state, wpm_status_update_cb,
                             wpm_status_get_state)
+ZMK_SUBSCRIPTION(widget_wpm_status, zmk_wpm_state_changed);
 
 /**
  * Initialization
- * This is where the main change for overall rotation happens using a container.
+ * 关键修改：调整主控件和画布的尺寸及对齐方式
  **/
 int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
-    // 1. Create the main widget object with dimensions matching the LOGICAL screen size (as designed)
+    // 1. 创建主控件，尺寸调整为旋转后的屏幕尺寸 (SCREEN_HEIGHT x SCREEN_WIDTH)
     widget->obj = lv_obj_create(parent);
-    lv_obj_set_size(widget->obj, SCREEN_LOGICAL_WIDTH, SCREEN_LOGICAL_HEIGHT); // 160 x 68
-    // Ensure the main widget background is transparent or matches the expected background
-    lv_obj_set_style_bg_opa(widget->obj, LV_OPA_TRANSP, 0); // Or LV_OPA_COVER with desired color
+    lv_obj_set_size(widget->obj, SCREEN_HEIGHT, SCREEN_WIDTH); // 160 x 68
 
-    // 2. Create a container that will hold the canvases and be rotated
-    lv_obj_t *rotated_container = lv_obj_create(widget->obj);
-    lv_obj_set_size(rotated_container, SCREEN_LOGICAL_WIDTH, SCREEN_LOGICAL_HEIGHT); // Match parent
-    lv_obj_set_style_pad_all(rotated_container, 0, 0); // Remove padding
-    lv_obj_set_style_border_width(rotated_container, 0, 0); // Remove border
-    lv_obj_set_style_bg_opa(rotated_container, LV_OPA_TRANSP, 0); // Transparent background
-    // Align the container to fill the parent
-    lv_obj_align(rotated_container, LV_ALIGN_CENTER, 0, 0); // Or TOP_LEFT if needed
-
-    // 3. Create a style for the 270-degree rotation and apply it to the container
-    static lv_style_t style_rotate_270;
-    lv_style_init(&style_rotate_270);
-    // 270 degrees * 10 (LVGL's unit) = 2700
-    lv_style_set_transform_angle(&style_rotate_270, 2700);
-    // Pivot point for rotation: center of the logical screen (160x68)
-    // Center is (160/2, 68/2) = (80, 34)
-    lv_style_set_transform_pivot_x(&style_rotate_270, 80);
-    lv_style_set_transform_pivot_y(&style_rotate_270, 34);
-
-    // Apply the rotation style to the container
-    lv_obj_add_style(rotated_container, &style_rotate_270, 0);
-
-    // 4. Create the three canvas children INSIDE the rotated_container
-    lv_obj_t *top = lv_canvas_create(rotated_container);
-    lv_obj_align(top, LV_ALIGN_TOP_RIGHT, 0, 0);
+    // 2. 创建并设置顶部画布 (对应 SIG/BAT 区域)
+    lv_obj_t *top = lv_canvas_create(widget->obj);
+    // 画布缓冲区仍为 68x68
     lv_canvas_set_buffer(top, widget->cbuf, BUFFER_SIZE, BUFFER_SIZE, LV_IMG_CF_TRUE_COLOR);
+    // 调整对齐方式和偏移量以适应 270 度旋转后的布局
+    // 旋转270度后，原顶部(0,0)会移动到右侧顶部
+    lv_obj_align(top, LV_ALIGN_TOP_RIGHT, 0, 0);
 
-    lv_obj_t *middle = lv_canvas_create(rotated_container);
-    // Keep original alignment logic relative to the container's unrotated coordinate system
-    lv_obj_align(middle, LV_ALIGN_TOP_RIGHT, BUFFER_OFFSET_MIDDLE, 0);
+    // 3. 创建并设置中部画布 (对应 WPM 图表区域)
+    lv_obj_t *middle = lv_canvas_create(widget->obj);
     lv_canvas_set_buffer(middle, widget->cbuf2, BUFFER_SIZE, BUFFER_SIZE, LV_IMG_CF_TRUE_COLOR);
+    // 旋转270度后，原中部(0, -44)会移动到屏幕中间靠右
+    // 偏移量需要根据旋转后的新坐标系调整
+    // BUFFER_OFFSET_MIDDLE = -44
+    // 在 160x68 的容器中，向右偏移 44 像素 (因为旋转后Y轴向上)
+    lv_obj_align(middle, LV_ALIGN_TOP_RIGHT, BUFFER_OFFSET_MIDDLE, 0);
 
-    lv_obj_t *bottom = lv_canvas_create(rotated_container);
-    // Keep original alignment logic
-    lv_obj_align(bottom, LV_ALIGN_TOP_RIGHT, BUFFER_OFFSET_BOTTOM, 0);
+    // 4. 创建并设置底部画布 (对应 Profile/Layer 区域)
+    lv_obj_t *bottom = lv_canvas_create(widget->obj);
     lv_canvas_set_buffer(bottom, widget->cbuf3, BUFFER_SIZE, BUFFER_SIZE, LV_IMG_CF_TRUE_COLOR);
+    // 旋转270度后，原底部(0, -129)会移动到左侧底部
+    // BUFFER_OFFSET_BOTTOM = -129
+    // 在 160x68 的容器中，向右偏移 129 像素 (因为旋转后Y轴向上)
+    lv_obj_align(bottom, LV_ALIGN_TOP_RIGHT, BUFFER_OFFSET_BOTTOM, 0);
 
-
-    // 5. Append widget to the list for event handling
+    // 5. 将 widget 添加到监听列表
     sys_slist_append(&widgets, &widget->node);
 
-    // 6. Initialize listeners
+    // 6. 初始化各个状态监听器
     widget_battery_status_init();
     widget_layer_status_init();
     widget_output_status_init();
