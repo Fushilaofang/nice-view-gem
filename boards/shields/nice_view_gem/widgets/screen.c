@@ -31,7 +31,7 @@ static sys_slist_t widgets = SYS_SLIST_STATIC_INIT(&widgets);
  * 旋转由 rotate_canvas 处理，这里的修改不影响它们。
  **/
 
-// 调整顶部区域绘制函数
+// 顶部区域绘制函数 (保持不变)
 static void draw_top(lv_obj_t *widget, lv_color_t cbuf[], const struct status_state *state) {
     lv_obj_t *canvas = lv_obj_get_child(widget, 0);
     fill_background(canvas);
@@ -42,7 +42,7 @@ static void draw_top(lv_obj_t *widget, lv_color_t cbuf[], const struct status_st
     rotate_canvas(canvas, cbuf);
 }
 
-// 调整中部区域绘制函数
+// 中部区域绘制函数 (保持不变)
 static void draw_middle(lv_obj_t *widget, lv_color_t cbuf[], const struct status_state *state) {
     lv_obj_t *canvas = lv_obj_get_child(widget, 1);
     fill_background(canvas);
@@ -52,7 +52,7 @@ static void draw_middle(lv_obj_t *widget, lv_color_t cbuf[], const struct status
     rotate_canvas(canvas, cbuf);
 }
 
-// 调整底部区域绘制函数
+// 底部区域绘制函数 (保持不变)
 static void draw_bottom(lv_obj_t *widget, lv_color_t cbuf[], const struct status_state *state) {
     lv_obj_t *canvas = lv_obj_get_child(widget, 2);
     fill_background(canvas);
@@ -65,7 +65,7 @@ static void draw_bottom(lv_obj_t *widget, lv_color_t cbuf[], const struct status
 
 /**
  * Battery status
- * 逻辑不变，但会调用修改后的 draw_top
+ * 逻辑不变
  **/
 static void set_battery_status(struct zmk_widget_screen *widget,
                                struct battery_status_state state) {
@@ -100,7 +100,7 @@ ZMK_SUBSCRIPTION(widget_battery_status, zmk_usb_conn_state_changed);
 
 /**
  * Layer status
- * 逻辑不变，但会调用修改后的 draw_bottom
+ * 逻辑不变
  **/
 static void set_layer_status(struct zmk_widget_screen *widget, struct layer_status_state state) {
     widget->state.layer_index = state.index;
@@ -124,7 +124,7 @@ ZMK_SUBSCRIPTION(widget_layer_status, zmk_layer_state_changed);
 
 /**
  * Output status
- * 逻辑不变，但会调用修改后的 draw_top 和 draw_bottom
+ * 逻辑不变
  **/
 static void set_output_status(struct zmk_widget_screen *widget,
                               const struct output_status_state *state) {
@@ -162,7 +162,7 @@ ZMK_SUBSCRIPTION(widget_output_status, zmk_ble_active_profile_changed);
 
 /**
  * WPM status
- * 逻辑不变，但会调用修改后的 draw_middle
+ * 逻辑不变
  **/
 static void set_wpm_status(struct zmk_widget_screen *widget, struct wpm_status_state state) {
     for (int i = 0; i < 9; i++) {
@@ -187,7 +187,22 @@ ZMK_SUBSCRIPTION(widget_wpm_status, zmk_wpm_state_changed);
 
 /**
  * Initialization
- * 关键修改：调整主控件和画布的尺寸及对齐方式
+ * 修正：调整画布对齐方式以匹配 270 度旋转后的布局
+ * 旋转 270 度 = 顺时针旋转 90 度 = 向左转 90 度
+ * (x, y) -> (H-1-y, x) 其中 H 是原始屏幕高度 (160)
+ * 但 LVGL 的 align 和 offset 是相对于父对象的，我们需要考虑旋转后坐标系的变化
+ * 原始对齐 LV_ALIGN_TOP_RIGHT (68, 0) + (x_ofs=0, y_ofs=Y_OFFSET)
+ * 旋转 270 度后，(68, 0) 变为 (159, 68)
+ * (x_ofs=0, y_ofs=Y_OFFSET) 变为 (x_ofs=-Y_OFFSET, y_ofs=0)
+ * 因此，新的对齐应该是 LV_ALIGN_TOP_RIGHT + (x_ofs=-Y_OFFSET, y_ofs=0)
+ * 但是，LV_ALIGN_TOP_RIGHT 在旋转后的 160x68 容器中是 (159, 0)
+ * 我们需要将画布移动到 (159 - Y_OFFSET, 0)
+ * 这可以通过 align_to 或者使用 LV_ALIGN_LEFT_MID 并调整 x_ofs 来实现
+ * 更直观的方法是使用 LV_ALIGN_TOP_LEFT 并设置 x_ofs = 159 - Y_OFFSET
+ * 159 = SCREEN_HEIGHT - 1
+ * 为了简化，我们使用 LV_ALIGN_TOP_RIGHT 并设置 x_ofs = -Y_OFFSET, y_ofs = 0
+ * 因为 LV_ALIGN_TOP_RIGHT 在 160x68 中是 (159, 0)，减去 Y_OFFSET 就是 (159 - Y_OFFSET, 0)
+ * 这正是我们想要的位置。
  **/
 int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
     // 1. 创建主控件，尺寸调整为旋转后的屏幕尺寸 (SCREEN_HEIGHT x SCREEN_WIDTH)
@@ -198,26 +213,23 @@ int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
     lv_obj_t *top = lv_canvas_create(widget->obj);
     // 画布缓冲区仍为 68x68
     lv_canvas_set_buffer(top, widget->cbuf, BUFFER_SIZE, BUFFER_SIZE, LV_IMG_CF_TRUE_COLOR);
-    // 调整对齐方式和偏移量以适应 270 度旋转后的布局
-    // 旋转270度后，原顶部(0,0)会移动到右侧顶部
-    lv_obj_align(top, LV_ALIGN_TOP_RIGHT, 0, 0);
+    // 旋转270度后，原顶部(0,0) -> (159, 0)
+    // LV_ALIGN_TOP_RIGHT in 160x68 is (159, 0). No offset needed for top.
+    lv_obj_align(top, LV_ALIGN_TOP_RIGHT, 0, 0); // x_ofs=0, y_ofs=0
 
     // 3. 创建并设置中部画布 (对应 WPM 图表区域)
     lv_obj_t *middle = lv_canvas_create(widget->obj);
     lv_canvas_set_buffer(middle, widget->cbuf2, BUFFER_SIZE, BUFFER_SIZE, LV_IMG_CF_TRUE_COLOR);
-    // 旋转270度后，原中部(0, -44)会移动到屏幕中间靠右
-    // 偏移量需要根据旋转后的新坐标系调整
-    // BUFFER_OFFSET_MIDDLE = -44
-    // 在 160x68 的容器中，向右偏移 44 像素 (因为旋转后Y轴向上)
-    lv_obj_align(middle, LV_ALIGN_TOP_RIGHT, BUFFER_OFFSET_MIDDLE, 0);
+    // 旋转270度后，原中部(0, -44) -> (159 - (-44), 0) = (115, 0)
+    // 使用 LV_ALIGN_TOP_RIGHT 并设置 x_ofs = BUFFER_OFFSET_MIDDLE = -44
+    lv_obj_align(middle, LV_ALIGN_TOP_RIGHT, BUFFER_OFFSET_MIDDLE, 0); // x_ofs=-44, y_ofs=0
 
     // 4. 创建并设置底部画布 (对应 Profile/Layer 区域)
     lv_obj_t *bottom = lv_canvas_create(widget->obj);
     lv_canvas_set_buffer(bottom, widget->cbuf3, BUFFER_SIZE, BUFFER_SIZE, LV_IMG_CF_TRUE_COLOR);
-    // 旋转270度后，原底部(0, -129)会移动到左侧底部
-    // BUFFER_OFFSET_BOTTOM = -129
-    // 在 160x68 的容器中，向右偏移 129 像素 (因为旋转后Y轴向上)
-    lv_obj_align(bottom, LV_ALIGN_TOP_RIGHT, BUFFER_OFFSET_BOTTOM, 0);
+    // 旋转270度后，原底部(0, -129) -> (159 - (-129), 0) = (30, 0)
+    // 使用 LV_ALIGN_TOP_RIGHT 并设置 x_ofs = BUFFER_OFFSET_BOTTOM = -129
+    lv_obj_align(bottom, LV_ALIGN_TOP_RIGHT, BUFFER_OFFSET_BOTTOM, 0); // x_ofs=-129, y_ofs=0
 
     // 5. 将 widget 添加到监听列表
     sys_slist_append(&widgets, &widget->node);
