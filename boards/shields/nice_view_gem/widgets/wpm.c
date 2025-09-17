@@ -5,9 +5,8 @@
 LV_IMG_DECLARE(gauge);
 LV_IMG_DECLARE(grid);
 
-// 定义缩小后的宽度和居中偏移
-#define WPM_GRAPH_GRID_WIDTH_REDUCED 64
-#define WPM_CENTERING_OFFSET_X 0 // (68 - 64) / 2
+// 居中偏移量常量
+#define WPM_CENTERING_OFFSET_X 1
 
 static void draw_gauge(lv_obj_t *canvas, const struct status_state *state) {
     lv_draw_img_dsc_t img_dsc;
@@ -54,12 +53,12 @@ static void draw_needle(lv_obj_t *canvas, const struct status_state *state) {
 static void draw_grid(lv_obj_t *canvas) {
     lv_draw_img_dsc_t img_dsc;
     lv_draw_img_dsc_init(&img_dsc);
-    // 将 grid 图像向右移动居中偏移量
+    // 应用居中偏移量到 grid 的 x 坐标
     // 原代码: lv_canvas_draw_img(canvas, 0, 65 + BUFFER_OFFSET_MIDDLE, &grid, &img_dsc);
     lv_canvas_draw_img(canvas, WPM_CENTERING_OFFSET_X, 65 + BUFFER_OFFSET_MIDDLE, &grid, &img_dsc);
     // 注意：如果 grid 图像本身是 68 像素宽，
-    // LVGL 可能会自动裁剪掉超出画布 (68x68) 右边界的 4 个像素。
-    // 如果没有自动裁剪，可能需要一个 64 像素宽的裁剪版本的 grid 图像。
+    // LVGL 可能会自动裁剪掉超出画布 (68x68) 右边界的 4 个像素 (如果画布最终显示区域被限制)。
+    // 如果没有自动裁剪，且 grid 图像宽度确实是 68，则保留原样。
 }
 
 static void draw_graph(lv_obj_t *canvas, const struct status_state *state) {
@@ -69,10 +68,7 @@ static void draw_graph(lv_obj_t *canvas, const struct status_state *state) {
     // Y 坐标计算保持不变
     int baselineY = 97 + BUFFER_OFFSET_MIDDLE;
 
-    // 计算新的 X 步长，以适应缩小后的宽度
-    const float new_x_step = (float)(WPM_GRAPH_GRID_WIDTH_REDUCED - 1) / (10.0f - 1.0f); // (64 - 1) / 9 = 7.0
-
-    // --- Y 坐标计算逻辑保持不变 ---
+    // --- 恢复原始的 X 坐标计算逻辑 ---
 #if IS_ENABLED(CONFIG_NICE_VIEW_GEM_WPM_FIXED_RANGE)
     int max = CONFIG_NICE_VIEW_GEM_WPM_FIXED_RANGE_MAX;
     if (max == 0) {
@@ -84,8 +80,9 @@ static void draw_graph(lv_obj_t *canvas, const struct status_state *state) {
         if (value > max) {
             value = max;
         }
-        // X 坐标：从居中偏移量开始，按新步长计算
-        points[i].x = WPM_CENTERING_OFFSET_X + (int)((float)i * new_x_step + 0.5f); // +0.5f for rounding
+        // 恢复原始计算，并应用居中偏移量
+        // 原代码: points[i].x = 0 + i * 7.4;
+        points[i].x = WPM_CENTERING_OFFSET_X + (int)(i * 7.4);
         points[i].y = baselineY - (value * 32 / max);
     }
 #else
@@ -104,8 +101,9 @@ static void draw_graph(lv_obj_t *canvas, const struct status_state *state) {
         range = 1;
     }
     for (int i = 0; i < 10; i++) {
-        // X 坐标：从居中偏移量开始，按新步长计算
-        points[i].x = WPM_CENTERING_OFFSET_X + (int)((float)i * new_x_step + 0.5f); // +0.5f for rounding
+        // 恢复原始计算，并应用居中偏移量
+        // 原代码: points[i].x = 0 + i * 7.4;
+        points[i].x = WPM_CENTERING_OFFSET_X + (int)(i * 7.4);
         points[i].y = baselineY - (state->wpm[i] - min) * 32 / range;
     }
 #endif
