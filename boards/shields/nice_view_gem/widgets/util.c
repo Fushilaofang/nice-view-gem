@@ -19,7 +19,7 @@ void rotate_canvas(lv_obj_t *canvas, lv_color_t cbuf[]) {
     lv_canvas_fill_bg(canvas, LVGL_BACKGROUND, LV_OPA_COVER);
     // 修改旋转角度为 270 度 (270 * 10 = 2700)
     // 原角度为 90 度 (90 * 10 = 900)
-    lv_canvas_transform(canvas, &img, 2700, LV_IMG_ZOOM_NONE, 0, 0, BUFFER_SIZE / 2,
+    lv_canvas_transform(canvas, &img, 2700, LV_IMG_ZOOM_NONE, -1, -2, BUFFER_SIZE / 2,
                         BUFFER_SIZE / 2, false);
 }
 
