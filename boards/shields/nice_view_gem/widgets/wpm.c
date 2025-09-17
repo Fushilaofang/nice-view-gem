@@ -5,42 +5,25 @@
 LV_IMG_DECLARE(gauge);
 LV_IMG_DECLARE(grid);
 
-// === 新增或修改的常量定义 ===
-// 原始宽度
-#define WPM_CANVAS_WIDTH_ORIGINAL 68
-// 减少 4 像素后的新宽度
-#define WPM_CANVAS_WIDTH_REDUCED 64
-// 宽度缩放因子 (用于浮点计算)
-#define WPM_WIDTH_SCALE_FACTOR ((float)WPM_CANVAS_WIDTH_REDUCED / (float)WPM_CANVAS_WIDTH_ORIGINAL)
-
-// 原始 centerX, centerY, radius, offset
-// centerX_orig = 33, centerY_orig = 67 + BUFFER_OFFSET_MIDDLE
-// radius_orig = 25.45585, offset_orig = 13
-// 计算新的值
-#define CENTER_X_REDUCED (WPM_CANVAS_WIDTH_REDUCED / 2) // 64 / 2 = 32
-#define CENTER_Y_REDUCED (67 + BUFFER_OFFSET_MIDDLE)    // Y 坐标保持不变，因为只减少宽度
-#define RADIUS_REDUCED ((int)(25.45585f * WPM_WIDTH_SCALE_FACTOR + 0.5f)) // 四舍五入取整, 约 24
-#define OFFSET_REDUCED ((int)(13.0f * WPM_WIDTH_SCALE_FACTOR + 0.5f))     // 四舍五入取整, 约 12
-// ============================
+// 定义缩小后的宽度和居中偏移
+#define WPM_GRAPH_GRID_WIDTH_REDUCED 64
+#define WPM_CENTERING_OFFSET_X 2 // (68 - 64) / 2
 
 static void draw_gauge(lv_obj_t *canvas, const struct status_state *state) {
     lv_draw_img_dsc_t img_dsc;
     lv_draw_img_dsc_init(&img_dsc);
-    // Gauge 图像可能也需要调整位置或被裁剪版本，如果它本身超出了新范围
-    // 这里暂时保持原样，假设 gauge 图像设计时已考虑居中或适应性
+    // Gauge 位置保持不变
     lv_canvas_draw_img(canvas, 16, 44 + BUFFER_OFFSET_MIDDLE, &gauge, &img_dsc);
 }
 
 static void draw_needle(lv_obj_t *canvas, const struct status_state *state) {
     lv_draw_line_dsc_t line_dsc;
     init_line_dsc(&line_dsc, LVGL_FOREGROUND, 1);
-    // === 使用新的、按比例缩小的中心点和半径 ===
-    int centerX = CENTER_X_REDUCED; // 32
-    int centerY = CENTER_Y_REDUCED; // 67 + BUFFER_OFFSET_MIDDLE (保持不变)
-    int offset = OFFSET_REDUCED;    // 12
+    // Needle 参数保持不变
+    int centerX = 33;
+    int centerY = 67 + BUFFER_OFFSET_MIDDLE;
+    int offset = 13;
     int value = state->wpm[9];
-    // ==========================================
-
 #if IS_ENABLED(CONFIG_NICE_VIEW_GEM_WPM_FIXED_RANGE)
     float max = CONFIG_NICE_VIEW_GEM_WPM_FIXED_RANGE_MAX;
 #else
@@ -57,9 +40,7 @@ static void draw_needle(lv_obj_t *canvas, const struct status_state *state) {
         value = 0;
     if (value > max)
         value = max;
-    // === 使用新的、按比例缩小的半径 ===
-    float radius = (float)RADIUS_REDUCED; // 24.0f
-    // ================================
+    float radius = 25.45585;
     float angleDeg = 225 + ((float)value / max) * 90;
     float angleRad = angleDeg * (3.14159f / 180.0f);
     int needleStartX = centerX + (int)((float)offset * cosf(angleRad));
@@ -73,22 +54,23 @@ static void draw_needle(lv_obj_t *canvas, const struct status_state *state) {
 static void draw_grid(lv_obj_t *canvas) {
     lv_draw_img_dsc_t img_dsc;
     lv_draw_img_dsc_init(&img_dsc);
-    // Grid 图像同样可能需要调整或使用裁剪版本
-    // 暂时保持原样
-    lv_canvas_draw_img(canvas, 0, 65 + BUFFER_OFFSET_MIDDLE, &grid, &img_dsc);
+    // 将 grid 图像向右移动居中偏移量
+    // 原代码: lv_canvas_draw_img(canvas, 0, 65 + BUFFER_OFFSET_MIDDLE, &grid, &img_dsc);
+    lv_canvas_draw_img(canvas, WPM_CENTERING_OFFSET_X, 65 + BUFFER_OFFSET_MIDDLE, &grid, &img_dsc);
+    // 注意：如果 grid 图像本身是 68 像素宽，
+    // LVGL 可能会自动裁剪掉超出画布 (68x68) 右边界的 4 个像素。
+    // 如果没有自动裁剪，可能需要一个 64 像素宽的裁剪版本的 grid 图像。
 }
 
 static void draw_graph(lv_obj_t *canvas, const struct status_state *state) {
     lv_draw_line_dsc_t line_dsc;
     init_line_dsc(&line_dsc, LVGL_FOREGROUND, 2);
     lv_point_t points[10];
+    // Y 坐标计算保持不变
     int baselineY = 97 + BUFFER_OFFSET_MIDDLE;
 
-    // --- 计算 X 坐标的部分 ---
-    // 原来的逻辑是 points[i].x = 0 + i * 7.4;
-    // 现在需要在 0 到 (WPM_CANVAS_WIDTH_REDUCED - 1) = 63 的范围内均匀分布 10 个点
-    // 步长 = (63 - 0) / (10 - 1) = 63 / 9 = 7
-    const int x_step_reduced = (WPM_CANVAS_WIDTH_REDUCED - 1) / (10 - 1); // 7
+    // 计算新的 X 步长，以适应缩小后的宽度
+    const float new_x_step = (float)(WPM_GRAPH_GRID_WIDTH_REDUCED - 1) / (10.0f - 1.0f); // (64 - 1) / 9 = 7.0
 
     // --- Y 坐标计算逻辑保持不变 ---
 #if IS_ENABLED(CONFIG_NICE_VIEW_GEM_WPM_FIXED_RANGE)
@@ -102,7 +84,8 @@ static void draw_graph(lv_obj_t *canvas, const struct status_state *state) {
         if (value > max) {
             value = max;
         }
-        points[i].x = 0 + i * x_step_reduced; // 使用新的步长
+        // X 坐标：从居中偏移量开始，按新步长计算
+        points[i].x = WPM_CENTERING_OFFSET_X + (int)((float)i * new_x_step + 0.5f); // +0.5f for rounding
         points[i].y = baselineY - (value * 32 / max);
     }
 #else
@@ -121,7 +104,8 @@ static void draw_graph(lv_obj_t *canvas, const struct status_state *state) {
         range = 1;
     }
     for (int i = 0; i < 10; i++) {
-        points[i].x = 0 + i * x_step_reduced; // 使用新的步长
+        // X 坐标：从居中偏移量开始，按新步长计算
+        points[i].x = WPM_CENTERING_OFFSET_X + (int)((float)i * new_x_step + 0.5f); // +0.5f for rounding
         points[i].y = baselineY - (state->wpm[i] - min) * 32 / range;
     }
 #endif
@@ -130,23 +114,17 @@ static void draw_graph(lv_obj_t *canvas, const struct status_state *state) {
 }
 
 static void draw_label(lv_obj_t *canvas, const struct status_state *state) {
-    // 标签绘制通常在固定区域，不太受 X 范围减少影响
-    // 但为了安全，可以检查其 x 坐标和宽度
+    // Label 位置保持不变
     lv_draw_label_dsc_t label_left_dsc;
     init_label_dsc(&label_left_dsc, LVGL_FOREGROUND, &pixel_operator_mono, LV_TEXT_ALIGN_LEFT);
-    // 原 x=0, w=25。保持不变或微调。
     lv_canvas_draw_text(canvas, 0, 101 + BUFFER_OFFSET_MIDDLE, 25, &label_left_dsc, "WPM");
 
     lv_draw_label_dsc_t label_dsc_wpm;
     init_label_dsc(&label_dsc_wpm, LVGL_FOREGROUND, &pixel_operator_mono, LV_TEXT_ALIGN_RIGHT);
     char wpm_text[6] = {};
     snprintf(wpm_text, sizeof(wpm_text), "%d", state->wpm[9]);
-    // 原 x=26, w=42。总宽度 68。现在总宽度 64。
-    // 新的 x 可能需要调整，例如从 22 开始，宽度 42 保持不变（只要不超出 64）
-    // 或者 x=22, w=40。让我们保守一点，x=22, w=38 (22+38=60 < 64)
-    // 原代码: lv_canvas_draw_text(canvas, 26, 101 + BUFFER_OFFSET_MIDDLE, 42, &label_dsc_wpm, wpm_text);
-    // 尝试调整 x 和 width
-    lv_canvas_draw_text(canvas, 22, 101 + BUFFER_OFFSET_MIDDLE, 38, &label_dsc_wpm, wpm_text);
+    // WPM 数值 Label 位置保持不变
+    lv_canvas_draw_text(canvas, 26, 101 + BUFFER_OFFSET_MIDDLE, 42, &label_dsc_wpm, wpm_text);
 }
 
 void draw_wpm_status(lv_obj_t *canvas, const struct status_state *state) {
