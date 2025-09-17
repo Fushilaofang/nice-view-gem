@@ -209,7 +209,7 @@ int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
     lv_coord_t current_x = lv_obj_get_x(widget->obj);
     lv_coord_t current_y = lv_obj_get_y(widget->obj);
     // 设置新的 X 坐标为原坐标 + 5
-    lv_obj_set_pos(widget->obj, current_x + 5, current_y);
+    lv_obj_set_pos(widget->obj, current_x + 50, current_y);
 
     // --- 顶部区域画布 ---
     lv_obj_t *top = lv_canvas_create(widget->obj);
