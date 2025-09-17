@@ -215,16 +215,16 @@ int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
     lv_obj_t *middle = lv_canvas_create(widget->obj);
     // 修改对齐方式为 BOTTOM_LEFT
     // 原来的 BUFFER_OFFSET_MIDDLE 是负数，用于向左偏移。
-    // 270度旋转后，为了保持相对位置，需要向右（正方向）偏移相同距离。
-    lv_obj_align(middle, LV_ALIGN_BOTTOM_LEFT, BUFFER_OFFSET_MIDDLE, 0);
+    // 270度旋转后，为了保持相对位置，需要向右（正方向）偏移相同距离，所以取负号。
+    lv_obj_align(middle, LV_ALIGN_BOTTOM_LEFT, -BUFFER_OFFSET_MIDDLE, 0);
     lv_canvas_set_buffer(middle, widget->cbuf2, BUFFER_SIZE, BUFFER_SIZE, LV_IMG_CF_TRUE_COLOR);
 
     // --- 底部区域画布 ---
     lv_obj_t *bottom = lv_canvas_create(widget->obj);
     // 修改对齐方式为 BOTTOM_LEFT
     // 原来的 BUFFER_OFFSET_BOTTOM 是负数，用于向左偏移更远。
-    // 270度旋转后，为了保持相对位置，需要向右（正方向）偏移相同距离。
-    lv_obj_align(bottom, LV_ALIGN_BOTTOM_LEFT, BUFFER_OFFSET_BOTTOM, 0);
+    // 270度旋转后，为了保持相对位置，需要向右（正方向）偏移相同距离，所以取负号。
+    lv_obj_align(bottom, LV_ALIGN_BOTTOM_LEFT, -BUFFER_OFFSET_BOTTOM, 0);
     lv_canvas_set_buffer(bottom, widget->cbuf3, BUFFER_SIZE, BUFFER_SIZE, LV_IMG_CF_TRUE_COLOR);
 
 
