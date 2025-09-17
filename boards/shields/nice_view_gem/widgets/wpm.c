@@ -17,7 +17,7 @@ static void draw_needle(lv_obj_t *canvas, const struct status_state *state) {
     lv_draw_line_dsc_t line_dsc;
     init_line_dsc(&line_dsc, LVGL_FOREGROUND, 1);
 
-    int centerX = 33;
+    int centerX = 34;
     int centerY = 67 + BUFFER_OFFSET_MIDDLE;
     int offset = 13;
     int value = state->wpm[9];
