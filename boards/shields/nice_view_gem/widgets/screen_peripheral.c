@@ -105,14 +105,10 @@ ZMK_SUBSCRIPTION(widget_peripheral_status, zmk_split_peripheral_status_changed);
 
 int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
     widget->obj = lv_obj_create(parent);
-    // === 修改部分 ===
-    // 根据 screen.c 的修改要求，交换 SCREEN_HEIGHT 和 SCREEN_WIDTH 的位置
-    // 原代码: lv_obj_set_size(widget->obj, SCREEN_HEIGHT, SCREEN_WIDTH);
-    lv_obj_set_size(widget->obj, SCREEN_WIDTH, SCREEN_HEIGHT); // 交换参数顺序
-    // === 修改部分结束 ===
+    lv_obj_set_size(widget->obj, SCREEN_HEIGHT, SCREEN_WIDTH);
 
     lv_obj_t *top = lv_canvas_create(widget->obj);
-    lv_obj_align(top, LV_ALIGN_TOP_RIGHT, 0, 0);
+    lv_obj_align(top, LV_ALIGN_BOTTOM_LEFT, 0, -2);
     lv_canvas_set_buffer(top, widget->cbuf, BUFFER_SIZE, BUFFER_SIZE, LV_IMG_CF_TRUE_COLOR);
 
     draw_animation(widget->obj);
