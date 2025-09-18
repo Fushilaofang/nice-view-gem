@@ -125,7 +125,7 @@ static void draw_label(lv_obj_t *canvas, const struct status_state *state) {
     snprintf(wpm_text, sizeof(wpm_text), "%d", state->wpm[9]);
     // 原始 x=26, 修改为 x=28
     // width 和对齐方式保持不变
-    lv_canvas_draw_text(canvas, 28, 101 + BUFFER_OFFSET_MIDDLE, 42, &label_dsc_wpm, wpm_text);
+    lv_canvas_draw_text(canvas, 24, 101 + BUFFER_OFFSET_MIDDLE, 42, &label_dsc_wpm, wpm_text);
 }
 
 void draw_wpm_status(lv_obj_t *canvas, const struct status_state *state) {
