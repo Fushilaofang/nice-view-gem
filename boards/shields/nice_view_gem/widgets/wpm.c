@@ -116,7 +116,7 @@ static void draw_label(lv_obj_t *canvas, const struct status_state *state) {
     lv_draw_label_dsc_t label_left_dsc;
     init_label_dsc(&label_left_dsc, LVGL_FOREGROUND, &pixel_operator_mono, LV_TEXT_ALIGN_LEFT);
     // 原始 x=0, 修改为 x=4
-    lv_canvas_draw_text(canvas, 4, 101 + BUFFER_OFFSET_MIDDLE, 25, &label_left_dsc, "WPM");
+    lv_canvas_draw_text(canvas, 3, 101 + BUFFER_OFFSET_MIDDLE, 25, &label_left_dsc, "WPM");
 
     // 绘制 WPM 计数值文本 - 向右移动 2 像素 (文本框整体右移)
     lv_draw_label_dsc_t label_dsc_wpm;
