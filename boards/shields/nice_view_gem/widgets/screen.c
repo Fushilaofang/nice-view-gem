@@ -224,7 +224,7 @@ int zmk_widget_screen_init(struct zmk_widget_screen *widget, lv_obj_t *parent) {
     // 修改对齐方式为 BOTTOM_LEFT
     // 原来的 BUFFER_OFFSET_BOTTOM 是负数，用于向左偏移更远。
     // 270度旋转后，为了保持相对位置，需要向右（正方向）偏移相同距离，所以取负号。
-    lv_obj_align(bottom, LV_ALIGN_BOTTOM_LEFT, -BUFFER_OFFSET_BOTTOM - 2, -2);
+    lv_obj_align(bottom, LV_ALIGN_BOTTOM_LEFT, -BUFFER_OFFSET_BOTTOM + 2, -2);
     lv_canvas_set_buffer(bottom, widget->cbuf3, BUFFER_SIZE, BUFFER_SIZE, LV_IMG_CF_TRUE_COLOR);
 
     // --- 事件监听器和列表管理 (保持不变) ---
