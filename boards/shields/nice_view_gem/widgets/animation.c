@@ -44,5 +44,5 @@ void draw_animation(lv_obj_t *canvas) {
     lv_img_set_src(art, anim_imgs[random_index]);
 #endif
 
-    lv_obj_align(art, LV_ALIGN_TOP_LEFT, -36, -2);
+    lv_obj_align(art, LV_ALIGN_BOTTOM_RIGHT, -36, -2);
 }
