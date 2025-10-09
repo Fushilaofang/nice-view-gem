@@ -1,10 +1,10 @@
 if SHIELD_NICE_VIEW_GEM
 
 config LV_Z_VDB_SIZE
-    default 100
+    default 16
 
 config LV_DPI_DEF
-    default 161
+    default 150
 
 config LV_Z_BITS_PER_PIXEL
     default 1
@@ -61,3 +61,4 @@ config NICE_VIEW_WIDGET_STATUS
 endif # !ZMK_SPLIT || ZMK_SPLIT_ROLE_CENTRAL
 
 endif # SHIELD_NICE_VIEW_GEM
+
